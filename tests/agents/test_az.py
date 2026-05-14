@@ -15,6 +15,17 @@ def _net():
   return net
 
 
+def _torch_eval(net: AZNetwork):
+  def evaluate(obs: np.ndarray, mask: np.ndarray) -> tuple[np.ndarray, float]:
+    obs_t = torch.as_tensor(obs)
+    mask_t = torch.as_tensor(mask)
+    with torch.no_grad():
+      log_probs, value = net(obs_t, mask_t)
+    return np.exp(log_probs[0].numpy()), float(value.item())
+
+  return evaluate
+
+
 def test_model_output_shapes():
   net = _net()
   obs = torch.randn(4, 15)
@@ -42,17 +53,15 @@ def test_model_masked_action_excluded():
 
 def test_mcts_pi_sums_to_one():
   net = _net()
-  device = torch.device("cpu")
   s = initial_state()
-  pi = search(s, net, device, n_sims=10, add_noise=False)
+  pi = search(s, _torch_eval(net), n_sims=10, add_noise=False)
   assert abs(pi.sum() - 1.0) < 1e-5
 
 
 def test_mcts_only_legal_actions():
   net = _net()
-  device = torch.device("cpu")
   s = initial_state()
-  pi = search(s, net, device, n_sims=10, add_noise=False)
+  pi = search(s, _torch_eval(net), n_sims=10, add_noise=False)
   legal = set(legal_moves(s))
   for i in range(6):
     if i not in legal:
@@ -83,7 +92,7 @@ def test_buffer_sample_shapes():
 
 def test_az_agent_returns_legal_move():
   net = _net()
-  agent = AZAgent(net, torch.device("cpu"), n_sims=5)
+  agent = AZAgent(_torch_eval(net), n_sims=5)
   s = initial_state()
   action, extras = agent.choose_move(s)
   assert action in legal_moves(s)

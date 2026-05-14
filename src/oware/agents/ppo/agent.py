@@ -4,10 +4,9 @@ from pathlib import Path
 from typing import Any
 
 import numpy as np
-import torch
 
 from oware.agents.base import AgentInfo
-from oware.agents.ppo.model import PPONetwork
+from oware.agents.onnx_runner import OnnxRunner
 from oware.engine import State, encode, legal_moves
 
 
@@ -20,18 +19,12 @@ class PPOAgent:
     est_elo=None,
   )
 
-  def __init__(self, net: PPONetwork, device: torch.device) -> None:
-    self._net = net
-    self._device = device
+  def __init__(self, runner: OnnxRunner) -> None:
+    self._runner = runner
 
   @classmethod
   def load(cls, path: Path) -> "PPOAgent":
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    ckpt = torch.load(path, map_location=device, weights_only=False)
-    net = PPONetwork().to(device)
-    net.load_state_dict(ckpt["model"])
-    net.eval()
-    return cls(net, device)
+    return cls(OnnxRunner(path))
 
   def choose_move(
     self,
@@ -39,13 +32,12 @@ class PPOAgent:
     *,
     time_budget_ms: int | None = None,
   ) -> tuple[int, dict[str, Any]]:
-    obs = torch.as_tensor(encode(state), device=self._device).unsqueeze(0)
-    mask = torch.zeros(1, 6, device=self._device)
+    obs = encode(state)[None, :]
+    mask = np.zeros((1, 6), dtype=np.float32)
     for m in legal_moves(state):
       mask[0, m] = 1.0
-    with torch.no_grad():
-      log_probs, _, _ = self._net(obs, mask)
-    lp = log_probs[0].cpu().numpy()
+    (log_probs,) = self._runner.run(obs=obs, mask=mask)
+    lp = log_probs[0]
     action = int(np.argmax(lp))
-    scores = [float(lp[i]) if mask[0, i].item() else None for i in range(6)]
+    scores = [float(lp[i]) if mask[0, i] else None for i in range(6)]
     return action, {"scores": scores}

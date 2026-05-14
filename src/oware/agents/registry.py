@@ -8,7 +8,7 @@ from oware.agents.random_agent import RandomAgent
 
 _PROJECT_ROOT = Path(__file__).resolve().parents[3]
 _DQN_CHECKPOINT = Path(
-  os.environ.get("OWARE_DQN_CHECKPOINT", _PROJECT_ROOT / "artifacts/dqn/latest.pt")
+  os.environ.get("OWARE_DQN_CHECKPOINT", _PROJECT_ROOT / "artifacts/dqn/latest.onnx")
 )
 
 _FACTORIES: dict[str, Callable[[int | None], Agent]] = {
@@ -32,7 +32,7 @@ if _DQN_CHECKPOINT.exists():
   REGISTRY.append(DQNAgent.info)
 
 _PPO_CHECKPOINT = Path(
-  os.environ.get("OWARE_PPO_CHECKPOINT", _PROJECT_ROOT / "artifacts/ppo/latest.pt")
+  os.environ.get("OWARE_PPO_CHECKPOINT", _PROJECT_ROOT / "artifacts/ppo/latest.onnx")
 )
 
 if _PPO_CHECKPOINT.exists():
@@ -42,7 +42,7 @@ if _PPO_CHECKPOINT.exists():
   REGISTRY.append(PPOAgent.info)
 
 _AZ_CHECKPOINT = Path(
-  os.environ.get("OWARE_AZ_CHECKPOINT", _PROJECT_ROOT / "artifacts/az/latest.pt")
+  os.environ.get("OWARE_AZ_CHECKPOINT", _PROJECT_ROOT / "artifacts/az/latest.onnx")
 )
 
 if _AZ_CHECKPOINT.exists():

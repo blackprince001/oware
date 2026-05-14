@@ -13,10 +13,21 @@ import torch.nn.functional as F
 from tqdm import tqdm
 
 from oware.agents.az.buffer import SelfPlayBuffer
-from oware.agents.az.mcts import search
+from oware.agents.az.mcts import Evaluator, search
 from oware.agents.az.model import AZNetwork
 from oware.engine import NORTH, SOUTH, encode, initial_state, step, terminal
 from oware.training.logging import RunLogger
+
+
+def _torch_evaluator(net: AZNetwork, device: torch.device) -> Evaluator:
+  def evaluate(obs: np.ndarray, mask: np.ndarray) -> tuple[np.ndarray, float]:
+    obs_t = torch.as_tensor(obs, device=device)
+    mask_t = torch.as_tensor(mask, device=device)
+    with torch.no_grad():
+      log_probs, value = net(obs_t, mask_t)
+    return np.exp(log_probs[0].cpu().numpy()), float(value.item())
+
+  return evaluate
 
 
 @dataclasses.dataclass
@@ -55,7 +66,7 @@ def _play_one_selfplay_game(
     done, _ = terminal(s)
     if done:
       break
-    pi = search(s, net, device, cfg.selfplay_sims, add_noise=True)
+    pi = search(s, _torch_evaluator(net, device), cfg.selfplay_sims, add_noise=True)
     if ply < cfg.tau_threshold:
       probs = pi / (pi.sum() + 1e-8)
       action = int(np.random.choice(6, p=probs))
@@ -104,7 +115,7 @@ def _eval_vs_net(
       if done:
         break
       net = candidate if s.to_move == cand_side else best
-      pi = search(s, net, device, sims, add_noise=False)
+      pi = search(s, _torch_evaluator(net, device), sims, add_noise=False)
       s, _ = step(s, int(np.argmax(pi)))
     _, winner = terminal(s)
     if winner == cand_side:

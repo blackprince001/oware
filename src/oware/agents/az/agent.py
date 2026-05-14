@@ -4,12 +4,19 @@ from pathlib import Path
 from typing import Any
 
 import numpy as np
-import torch
 
-from oware.agents.az.mcts import search
-from oware.agents.az.model import AZNetwork
+from oware.agents.az.mcts import Evaluator, search
 from oware.agents.base import AgentInfo
+from oware.agents.onnx_runner import OnnxRunner
 from oware.engine import State
+
+
+def _make_onnx_evaluator(runner: OnnxRunner) -> Evaluator:
+  def evaluate(obs: np.ndarray, mask: np.ndarray) -> tuple[np.ndarray, float]:
+    log_probs, value = runner.run(obs=obs, mask=mask)
+    return np.exp(log_probs[0]), float(value[0])
+
+  return evaluate
 
 
 class AZAgent:
@@ -21,19 +28,13 @@ class AZAgent:
     est_elo=None,
   )
 
-  def __init__(self, net: AZNetwork, device: torch.device, n_sims: int = 100) -> None:
-    self._net = net
-    self._device = device
+  def __init__(self, evaluator: Evaluator, n_sims: int = 100) -> None:
+    self._evaluator = evaluator
     self._n_sims = n_sims
 
   @classmethod
   def load(cls, path: Path, n_sims: int = 100) -> "AZAgent":
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    ckpt = torch.load(path, map_location=device, weights_only=False)
-    net = AZNetwork().to(device)
-    net.load_state_dict(ckpt["model"])
-    net.eval()
-    return cls(net, device, n_sims)
+    return cls(_make_onnx_evaluator(OnnxRunner(path)), n_sims)
 
   def choose_move(
     self,
@@ -41,7 +42,7 @@ class AZAgent:
     *,
     time_budget_ms: int | None = None,
   ) -> tuple[int, dict[str, Any]]:
-    pi = search(state, self._net, self._device, self._n_sims, add_noise=False)
+    pi = search(state, self._evaluator, self._n_sims, add_noise=False)
     action = int(np.argmax(pi))
     scores = [float(pi[i]) if pi[i] > 0 else None for i in range(6)]
     return action, {"scores": scores, "sims": self._n_sims}

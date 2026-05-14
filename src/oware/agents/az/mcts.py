@@ -1,14 +1,18 @@
 from __future__ import annotations
 
 import math
+from collections.abc import Callable
 
 import numpy as np
-import torch
 
-from oware.agents.az.model import AZNetwork
 from oware.engine import State, encode, legal_moves, step, terminal
 
 C_PUCT = 1.5
+
+# Evaluator: (obs[1,15], mask[1,6]) -> (probs[6], value: float).
+# Both training (torch) and inference (onnxruntime) wrap their forward pass
+# behind this signature so MCTS stays framework-agnostic.
+Evaluator = Callable[[np.ndarray, np.ndarray], tuple[np.ndarray, float]]
 
 
 class _Node:
@@ -33,23 +37,21 @@ class _Node:
     return len(self.children) == 0
 
 
-def _net_eval(node: _Node, net: AZNetwork, device: torch.device) -> float:
+def _net_eval(node: _Node, evaluator: Evaluator) -> float:
   done, winner = terminal(node.state)
   if done:
     side = node.state.to_move
     return 1.0 if winner == side else (0.0 if winner == -1 else -1.0)
 
-  obs = torch.as_tensor(encode(node.state), device=device).unsqueeze(0)
+  obs = encode(node.state)[None, :]
   moves = legal_moves(node.state)
-  mask = torch.zeros(1, 6, device=device)
+  mask = np.zeros((1, 6), dtype=np.float32)
   for m in moves:
     mask[0, m] = 1.0
-  with torch.no_grad():
-    log_probs, value = net(obs, mask)
-  probs = log_probs.exp()[0].cpu().numpy()
+  probs, value = evaluator(obs, mask)
   for m in moves:
     node.children[m] = _Node(step(node.state, m)[0], float(probs[m]), node, m)
-  return float(value.item())
+  return value
 
 
 def _select(node: _Node) -> _Node:
@@ -78,14 +80,13 @@ def _backprop(node: _Node, value: float) -> None:
 
 def search(
   root_state: State,
-  net: AZNetwork,
-  device: torch.device,
+  evaluator: Evaluator,
   n_sims: int,
   add_noise: bool = False,
 ) -> np.ndarray:
   """Single-threaded PUCT MCTS. Returns the visit-count distribution over actions."""
   root = _Node(root_state, 1.0, None, None)
-  _net_eval(root, net, device)
+  _net_eval(root, evaluator)
 
   if add_noise and root.children:
     moves = list(root.children.keys())
@@ -95,7 +96,7 @@ def search(
 
   for _ in range(n_sims):
     leaf = _select(root)
-    value = _net_eval(leaf, net, device)
+    value = _net_eval(leaf, evaluator)
     _backprop(leaf, value)
 
   pi = np.zeros(6, dtype=np.float32)

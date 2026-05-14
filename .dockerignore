@@ -21,9 +21,9 @@ artifacts/*
 artifacts/dqn/*
 artifacts/ppo/*
 artifacts/az/*
-!artifacts/dqn/*.pt
-!artifacts/ppo/*.pt
-!artifacts/az/*.pt
+!artifacts/dqn/*.onnx
+!artifacts/ppo/*.onnx
+!artifacts/az/*.onnx
 **/runs
 **/checkpoints
 

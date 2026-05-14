@@ -4,10 +4,9 @@ from pathlib import Path
 from typing import Any
 
 import numpy as np
-import torch
 
 from oware.agents.base import AgentInfo
-from oware.agents.dqn.model import QNetwork
+from oware.agents.onnx_runner import OnnxRunner
 from oware.engine import State, encode, legal_moves
 
 
@@ -20,19 +19,12 @@ class DQNAgent:
     est_elo=None,
   )
 
-  def __init__(self, net: QNetwork, device: torch.device) -> None:
-    self._net = net
-    self._device = device
+  def __init__(self, runner: OnnxRunner) -> None:
+    self._runner = runner
 
   @classmethod
   def load(cls, path: Path) -> "DQNAgent":
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    ckpt = torch.load(path, map_location=device, weights_only=False)
-    cfg = ckpt.get("config", {})
-    net = QNetwork(dueling=cfg.get("dueling", True)).to(device)
-    net.load_state_dict(ckpt["model"])
-    net.eval()
-    return cls(net, device)
+    return cls(OnnxRunner(path))
 
   def choose_move(
     self,
@@ -40,13 +32,12 @@ class DQNAgent:
     *,
     time_budget_ms: int | None = None,
   ) -> tuple[int, dict[str, Any]]:
-    obs = encode(state)
+    obs = encode(state)[None, :]
     mask = np.zeros(6, dtype=np.float32)
     for m in legal_moves(state):
       mask[m] = 1.0
-    with torch.no_grad():
-      q = self._net(torch.as_tensor(obs, device=self._device).unsqueeze(0))[0]
-    q = q.cpu().numpy()
+    (q,) = self._runner.run(obs=obs)
+    q = q[0]
     q[mask == 0] = -float("inf")
     action = int(np.argmax(q))
     scores = [float(q[i]) if mask[i] else None for i in range(6)]

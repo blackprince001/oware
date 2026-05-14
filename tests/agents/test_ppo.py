@@ -65,10 +65,10 @@ def test_minibatch_sizes():
     assert total == 32
 
 
-def test_ppo_agent_returns_legal_move():
-    device = torch.device("cpu")
-    net = PPONetwork()
-    agent = PPOAgent(net, device)
+def test_ppo_agent_returns_legal_move(tmp_path):
+    from tests.agents.conftest import export_ppo
+    onnx_path = export_ppo(PPONetwork(), tmp_path / "ppo.onnx")
+    agent = PPOAgent.load(onnx_path)
     s = initial_state()
     action, extras = agent.choose_move(s)
     assert action in legal_moves(s)
