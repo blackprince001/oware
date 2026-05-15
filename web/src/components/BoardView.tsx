@@ -155,7 +155,7 @@ export function BoardView({
   const hintAbs = hintPit !== null && hintPit !== undefined ? hintPit : null;
 
   return (
-    <svg viewBox={`0 0 ${w} ${h}`} className="max-w-full select-none">
+    <svg viewBox={`0 0 ${w} ${h}`} className="block h-auto w-full max-w-full select-none">
       <Store x={w / 2} y={topStoreY} count={frame.stores.north} orientation="top" kind="agent" />
       <Store x={w / 2} y={botStoreY} count={frame.stores.south} orientation="bottom" kind="player" />
 

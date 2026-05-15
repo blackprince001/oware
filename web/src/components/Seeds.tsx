@@ -5,18 +5,18 @@ interface Props {
 }
 
 const PIT_LAYOUT: ReadonlyArray<readonly [number, number]> = [
-  [0, -10],
-  [-9, -3],
-  [9, -3],
-  [-5, 8],
-  [5, 8],
-  [0, 0],
-  [-12, 6],
-  [12, 6],
-  [-8, -8],
-  [8, -8],
-  [0, 12],
-  [0, -16],
+  [0, -18],
+  [-18, -6],
+  [18, -6],
+  [-12, 14],
+  [12, 14],
+  [0, 2],
+  [-22, 10],
+  [22, 10],
+  [-16, -16],
+  [16, -16],
+  [0, 22],
+  [0, -28],
 ];
 
 const STORE_LAYOUT: ReadonlyArray<readonly [number, number]> = (() => {
@@ -34,12 +34,16 @@ const STORE_LAYOUT: ReadonlyArray<readonly [number, number]> = (() => {
   return pts;
 })();
 
+const PIT_COUNT_THRESHOLD = 7;
+
 export function Seeds({ count, size = "pit", storeOffsetY = 0 }: Props) {
   if (count <= 0) return null;
-  const layout = size === "pit" ? PIT_LAYOUT : STORE_LAYOUT;
-  const dotR = size === "pit" ? 4 : 3.2;
-  const visible = Math.min(count, layout.length);
   const yShift = size === "store" ? storeOffsetY : 0;
+
+  const layout = size === "pit" ? PIT_LAYOUT : STORE_LAYOUT;
+  const dotR = size === "pit" ? 6 : 3.2;
+  const visible = Math.min(count, layout.length);
+  const showPitNumber = size === "pit" && count >= PIT_COUNT_THRESHOLD;
 
   return (
     <g transform={`translate(0 ${yShift})`}>
@@ -47,15 +51,27 @@ export function Seeds({ count, size = "pit", storeOffsetY = 0 }: Props) {
         const [dx, dy] = layout[i];
         return <circle key={i} cx={dx} cy={dy} r={dotR} fill="var(--seed-color)" />;
       })}
-      {count > layout.length && (
+      {showPitNumber && (
         <text
-          x={size === "pit" ? 0 : layout[layout.length - 1][0] + 16}
-          y={size === "pit" ? 28 : 4}
-          textAnchor={size === "pit" ? "middle" : "start"}
+          x={0}
+          y={44}
+          textAnchor="middle"
+          dominantBaseline="middle"
+          fill="var(--seed-color)"
+          className="font-mono font-bold text-[20px]"
+        >
+          {count}
+        </text>
+      )}
+      {size === "store" && count > layout.length && (
+        <text
+          x={layout[layout.length - 1][0] + 16}
+          y={4}
+          textAnchor="start"
           fill="var(--seed-color)"
           className="font-mono text-[10px]"
         >
-          {size === "pit" ? count : `+${count - layout.length}`}
+          {`+${count - layout.length}`}
         </text>
       )}
     </g>
