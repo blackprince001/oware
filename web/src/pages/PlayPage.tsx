@@ -7,6 +7,8 @@ import { MuteToggle } from "../components/MuteToggle";
 import { AgentInsight } from "../components/AgentInsight";
 import { AnalysisPane } from "../components/AnalysisPane";
 import { PageHeader } from "../components/PageHeader";
+import { Tutorial } from "../components/Tutorial";
+import { hasSeenTutorial, markTutorialSeen } from "../lib/tutorial";
 import { useGame } from "../hooks/useGame";
 import { useTheme } from "../hooks/useTheme";
 import { useHashRoute } from "../hooks/useHashRoute";
@@ -25,6 +27,17 @@ export function PlayPage() {
 
   const onStart = (agentId: string) => game.newGame(agentId, "south");
   const [pickerOpen, setPickerOpen] = useState(false);
+  const [showTutorial, setShowTutorial] = useState(() => !hasSeenTutorial());
+
+  // Once the user finishes a game, the tutorial has served its purpose — never show it again.
+  useEffect(() => {
+    if (game.result) markTutorialSeen();
+  }, [game.result]);
+
+  const dismissTutorial = () => {
+    markTutorialSeen();
+    setShowTutorial(false);
+  };
 
   const myTurn =
     game.state !== null &&
@@ -37,6 +50,7 @@ export function PlayPage() {
 
   return (
     <div className="flex min-h-screen flex-col bg-white text-ink dark:bg-dark-bg dark:text-dark-ink">
+      {showTutorial && <Tutorial onClose={dismissTutorial} />}
       <PageHeader
         left={<span className="font-mono text-[10px] uppercase tracking-widest text-muted">play</span>}
         right={
@@ -59,6 +73,13 @@ export function PlayPage() {
             <div className="text-muted dark:text-dark-muted"># Oware</div>
             <div>{game.conn === "open" ? "connected" : "disconnected"}</div>
           </div>
+
+          <button
+            onClick={() => setShowTutorial(true)}
+            className="rounded-xl border border-line px-3 py-2 text-left text-[11px] uppercase tracking-wider text-muted transition-colors hover:border-ink hover:text-ink dark:border-dark-line dark:text-dark-muted dark:hover:border-dark-muted dark:hover:text-dark-ink"
+          >
+            how to play →
+          </button>
 
           {game.lastAgentMove && <AgentInsight move={game.lastAgentMove} />}
 

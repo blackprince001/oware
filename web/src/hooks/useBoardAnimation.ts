@@ -2,9 +2,11 @@ import { useEffect, useRef, useState } from "react";
 import type { GameState, Side } from "../lib/protocol";
 import { thock, tick } from "../lib/audio";
 
-const HOP_MS = 110;
-const CAPTURE_MS = 180;
-const SETTLE_MS = 120;
+const HOP_MS = 170;
+const CAPTURE_MS = 260;
+const SETTLE_MS = 220;
+// Breath before the opponent's move animation starts, so it doesn't race the player's move.
+const AGENT_LEAD_MS = 380;
 
 export interface AnimatedBoard {
   displayed: GameState | null;
@@ -99,12 +101,18 @@ export function useBoardAnimation(latest: GameState | null): AnimatedBoard {
     const seeds = from.pits[src];
     const path = sowPath(src, seeds);
 
+    // Give the agent's move a beat of lead-in so it doesn't trail the player instantly.
+    if (lm.by === "north") {
+      await sleep(AGENT_LEAD_MS);
+      if (cancelled.current) return;
+    }
+
     const pits = [...from.pits];
     const stores = { ...from.stores };
     pits[src] = 0;
     setDisplayed({ ...from, pits: [...pits] });
     setFlyingPit(src);
-    await sleep(60);
+    await sleep(120);
     if (cancelled.current) return;
 
     for (const dest of path) {
