@@ -284,7 +284,7 @@ function MiniBoard({ frames }: { frames: Frame[] }) {
           textAnchor="middle"
           dominantBaseline="central"
           fontSize={12}
-          fontFamily="ui-monospace, monospace"
+          fontFamily="DynaPuff, ui-monospace, monospace"
           fill="var(--seed-color)"
           opacity={struck ? 0.45 : 1}
           textDecoration={struck ? "line-through" : undefined}
@@ -314,7 +314,7 @@ function MiniBoard({ frames }: { frames: Frame[] }) {
           dominantBaseline="central"
           fontSize={13}
           fontWeight={600}
-          fontFamily="ui-monospace, monospace"
+          fontFamily="DynaPuff, ui-monospace, monospace"
           fill="var(--seed-color)"
         >
           {frame.stores.north}
@@ -345,7 +345,7 @@ function MiniBoard({ frames }: { frames: Frame[] }) {
           dominantBaseline="central"
           fontSize={13}
           fontWeight={600}
-          fontFamily="ui-monospace, monospace"
+          fontFamily="DynaPuff, ui-monospace, monospace"
           fill="var(--seed-color)"
         >
           {frame.stores.south}

@@ -130,6 +130,7 @@ export function MatchPage() {
                   state={game.state}
                   onPlay={() => undefined}
                   disabled={true}
+                  pace="match"
                 />
               </div>
               {game.result && (

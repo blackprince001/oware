@@ -2,11 +2,22 @@ import { useEffect, useRef, useState } from "react";
 import type { GameState, Side } from "../lib/protocol";
 import { thock, tick } from "../lib/audio";
 
-const HOP_MS = 170;
-const CAPTURE_MS = 260;
-const SETTLE_MS = 220;
-// Breath before the opponent's move animation starts, so it doesn't race the player's move.
-const AGENT_LEAD_MS = 380;
+export type Pace = "human" | "match";
+
+interface Timing {
+  hop: number;
+  capture: number;
+  settle: number;
+  pluck: number;
+  agentLead: number;
+}
+
+// Human vs AI: deliberate pacing so each agent move is readable.
+// AI vs AI: original tight timing — the match page's own speed control handles cadence.
+const TIMING: Record<Pace, Timing> = {
+  human: { hop: 170, capture: 260, settle: 220, pluck: 120, agentLead: 380 },
+  match: { hop: 110, capture: 180, settle: 120, pluck: 60, agentLead: 0 },
+};
 
 export interface AnimatedBoard {
   displayed: GameState | null;
@@ -34,7 +45,8 @@ function absFromAction(action: number, by: Side): number {
   return by === "south" ? action : 6 + action;
 }
 
-export function useBoardAnimation(latest: GameState | null): AnimatedBoard {
+export function useBoardAnimation(latest: GameState | null, pace: Pace = "human"): AnimatedBoard {
+  const t = TIMING[pace];
   const [displayed, setDisplayed] = useState<GameState | null>(latest);
   const [flyingPit, setFlyingPit] = useState<number | null>(null);
   const [flyingTo, setFlyingTo] = useState<"store-south" | "store-north" | null>(null);
@@ -102,8 +114,8 @@ export function useBoardAnimation(latest: GameState | null): AnimatedBoard {
     const path = sowPath(src, seeds);
 
     // Give the agent's move a beat of lead-in so it doesn't trail the player instantly.
-    if (lm.by === "north") {
-      await sleep(AGENT_LEAD_MS);
+    if (lm.by === "north" && t.agentLead > 0) {
+      await sleep(t.agentLead);
       if (cancelled.current) return;
     }
 
@@ -112,19 +124,19 @@ export function useBoardAnimation(latest: GameState | null): AnimatedBoard {
     pits[src] = 0;
     setDisplayed({ ...from, pits: [...pits] });
     setFlyingPit(src);
-    await sleep(120);
+    await sleep(t.pluck);
     if (cancelled.current) return;
 
     for (const dest of path) {
       setFlyingPit(dest);
-      await sleep(HOP_MS);
+      await sleep(t.hop);
       if (cancelled.current) return;
       pits[dest] += 1;
       setDisplayed({ ...from, pits: [...pits], stores: { ...stores } });
       tick();
     }
     setFlyingPit(null);
-    await sleep(SETTLE_MS);
+    await sleep(t.settle);
     if (cancelled.current) return;
 
     const captures: number[] = [];
@@ -143,7 +155,7 @@ export function useBoardAnimation(latest: GameState | null): AnimatedBoard {
       else stores.north += gained;
       setDisplayed({ ...from, pits: [...pits], stores: { ...stores } });
       thock();
-      await sleep(CAPTURE_MS);
+      await sleep(t.capture);
       if (cancelled.current) return;
     }
     setFlyingTo(null);

@@ -1,15 +1,17 @@
 import { BoardView } from "./BoardView";
 import { useBoardAnimation } from "../hooks/useBoardAnimation";
+import type { Pace } from "../hooks/useBoardAnimation";
 import type { GameState } from "../lib/protocol";
 
 interface Props {
   state: GameState;
   onPlay: (pit: number) => void;
   disabled: boolean;
+  pace?: Pace;
 }
 
-export function Board({ state, onPlay, disabled }: Props) {
-  const anim = useBoardAnimation(state);
+export function Board({ state, onPlay, disabled, pace }: Props) {
+  const anim = useBoardAnimation(state, pace);
   const view = anim.displayed ?? state;
   const isAnimating = anim.animating;
 
