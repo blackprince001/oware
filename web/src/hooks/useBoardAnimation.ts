@@ -45,7 +45,11 @@ function absFromAction(action: number, by: Side): number {
   return by === "south" ? action : 6 + action;
 }
 
-export function useBoardAnimation(latest: GameState | null, pace: Pace = "human"): AnimatedBoard {
+export function useBoardAnimation(
+  latest: GameState | null,
+  pace: Pace = "human",
+  source?: { stateSeq: number; drainStates: () => GameState[] },
+): AnimatedBoard {
   const t = TIMING[pace];
   const [displayed, setDisplayed] = useState<GameState | null>(latest);
   const [flyingPit, setFlyingPit] = useState<number | null>(null);
@@ -69,24 +73,35 @@ export function useBoardAnimation(latest: GameState | null, pace: Pace = "human"
       setAnimating(false);
       return;
     }
-    if (current.current === null || current.current.game_id !== latest.game_id) {
-      cancelled.current = true;
-      queue.current = [];
-      running.current = false;
-      current.current = latest;
-      setDisplayed(latest);
-      setFlyingPit(null);
-      setFlyingTo(null);
-      setAnimating(false);
-      return;
+
+    // Drain every state captured at the WebSocket layer, in order. Falls back to
+    // [latest] when no source is provided. This prevents React batching from
+    // collapsing the player's intermediate state into the agent's final state,
+    // which would skip the player's move animation on fast opponents / slow devices.
+    const incoming = source ? source.drainStates() : [latest];
+    let started = false;
+    for (const s of incoming) {
+      if (current.current === null || current.current.game_id !== s.game_id) {
+        cancelled.current = true;
+        queue.current = [];
+        running.current = false;
+        current.current = s;
+        setDisplayed(s);
+        setFlyingPit(null);
+        setFlyingTo(null);
+        setAnimating(false);
+        continue;
+      }
+      const lastQueued = queue.current[queue.current.length - 1] ?? current.current;
+      if (s.ply <= lastQueued.ply) continue;
+      queue.current.push(s);
+      started = true;
     }
-    if (latest.ply <= current.current.ply) return;
-    queue.current.push(latest);
-    if (!running.current) {
+    if (started && !running.current) {
       cancelled.current = false;
       void run();
     }
-  }, [latest]);
+  }, [latest, source?.stateSeq]);
 
   async function run() {
     running.current = true;

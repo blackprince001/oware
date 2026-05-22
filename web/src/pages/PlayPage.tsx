@@ -39,6 +39,8 @@ export function PlayPage() {
     setShowTutorial(false);
   };
 
+  const [infoOpen, setInfoOpen] = useState(false);
+
   const myTurn =
     game.state !== null &&
     game.state.to_move === "south" &&
@@ -47,6 +49,16 @@ export function PlayPage() {
 
   const south = game.state?.stores.south ?? 0;
   const north = game.state?.stores.north ?? 0;
+
+  const statusLabel = game.result
+    ? resultLabel(game.result.winner)
+    : game.thinking
+      ? "thinking…"
+      : myTurn
+        ? "your move"
+        : game.state
+          ? "—"
+          : "idle";
 
   return (
     <div className="flex min-h-screen flex-col bg-white text-ink dark:bg-dark-bg dark:text-dark-ink">
@@ -69,43 +81,65 @@ export function PlayPage() {
 
       <div className="flex flex-1 flex-col lg:grid lg:grid-cols-[20rem_1fr_20rem]">
         <aside className="flex shrink-0 flex-col gap-3 p-4 font-mono text-[11px] leading-tight lg:p-6">
-          <div className="rounded-xl border border-line p-3 dark:border-dark-line">
-            <div className="text-muted dark:text-dark-muted"># Oware</div>
-            <div>{game.conn === "open" ? "connected" : "disconnected"}</div>
-          </div>
-
+          {/* Mobile-only compact summary: connection + status, tap to expand */}
           <button
-            onClick={() => setShowTutorial(true)}
-            className="rounded-xl border border-line px-3 py-2 text-left text-[11px] uppercase tracking-wider text-muted transition-colors hover:border-ink hover:text-ink dark:border-dark-line dark:text-dark-muted dark:hover:border-dark-muted dark:hover:text-dark-ink"
+            type="button"
+            onClick={() => setInfoOpen((o) => !o)}
+            aria-expanded={infoOpen}
+            aria-label={infoOpen ? "Collapse game info" : "Expand game info"}
+            className="flex items-center justify-between gap-3 rounded-xl border border-line px-3 py-2 text-left transition-colors hover:border-ink dark:border-dark-line dark:hover:border-dark-muted lg:hidden"
           >
-            how to play →
+            <span className="flex items-center gap-3">
+              <span className="flex items-center gap-1.5">
+                <span
+                  className={`inline-block h-1.5 w-1.5 rounded-full ${
+                    game.conn === "open"
+                      ? "bg-green-500"
+                      : "bg-red-500"
+                  }`}
+                />
+                <span className="text-muted dark:text-dark-muted">
+                  {game.conn === "open" ? "connected" : "offline"}
+                </span>
+              </span>
+              <span className="text-line dark:text-dark-line">·</span>
+              <span>{statusLabel}</span>
+            </span>
+            <span className="text-muted dark:text-dark-muted">{infoOpen ? "▲" : "▼"}</span>
           </button>
 
-          {game.lastAgentMove && <AgentInsight move={game.lastAgentMove} />}
+          {/* Detail cards: always visible on lg+, toggleable on mobile */}
+          <div className={`${infoOpen ? "flex" : "hidden"} flex-col gap-3 lg:flex`}>
+            <div className="rounded-xl border border-line p-3 dark:border-dark-line">
+              <div className="text-muted dark:text-dark-muted"># Oware</div>
+              <div>{game.conn === "open" ? "connected" : "disconnected"}</div>
+            </div>
 
-          {game.state && (
-            <>
-              <div className="rounded-xl border border-line p-3 space-y-1 dark:border-dark-line">
-                <div className="text-muted dark:text-dark-muted">Score</div>
-                <div>{game.agent?.name ?? "Agent"} : {north}</div>
-                <div>Player : {south}</div>
-              </div>
-              <div className="rounded-xl border border-line p-3 dark:border-dark-line">
-                <div className="text-muted dark:text-dark-muted">Status</div>
-                <div>
-                  {game.result
-                    ? resultLabel(game.result.winner)
-                    : game.thinking
-                      ? "thinking…"
-                      : myTurn
-                        ? "your move"
-                        : "—"}
+            <button
+              onClick={() => setShowTutorial(true)}
+              className="rounded-xl border border-line px-3 py-2 text-left text-[11px] uppercase tracking-wider text-muted transition-colors hover:border-ink hover:text-ink dark:border-dark-line dark:text-dark-muted dark:hover:border-dark-muted dark:hover:text-dark-ink"
+            >
+              how to play →
+            </button>
+
+            {game.lastAgentMove && <AgentInsight move={game.lastAgentMove} />}
+
+            {game.state && (
+              <>
+                <div className="rounded-xl border border-line p-3 space-y-1 dark:border-dark-line">
+                  <div className="text-muted dark:text-dark-muted">Score</div>
+                  <div>{game.agent?.name ?? "Agent"} : {north}</div>
+                  <div>Player : {south}</div>
                 </div>
-              </div>
-            </>
-          )}
+                <div className="rounded-xl border border-line p-3 dark:border-dark-line">
+                  <div className="text-muted dark:text-dark-muted">Status</div>
+                  <div>{statusLabel}</div>
+                </div>
+              </>
+            )}
 
-          {game.error && <div className="text-red-500">err: {game.error}</div>}
+            {game.error && <div className="text-red-500">err: {game.error}</div>}
+          </div>
         </aside>
 
         <main className="flex flex-1 flex-col items-center justify-center gap-4 p-0 lg:p-8">
@@ -116,6 +150,7 @@ export function PlayPage() {
                   state={game.state}
                   onPlay={(pit) => game.sendMove(pit)}
                   disabled={!myTurn}
+                  source={{ stateSeq: game.stateSeq, drainStates: game.drainStates }}
                 />
               </div>
 

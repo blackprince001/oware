@@ -131,6 +131,7 @@ export function MatchPage() {
                   onPlay={() => undefined}
                   disabled={true}
                   pace="match"
+                  source={{ stateSeq: game.stateSeq, drainStates: game.drainStates }}
                 />
               </div>
               {game.result && (

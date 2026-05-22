@@ -7,6 +7,14 @@ export type ConnState = "connecting" | "open" | "closed";
 export interface GameView {
   conn: ConnState;
   state: GameState | null;
+  /**
+   * Monotonic counter that bumps once per incoming `state` message. Combined with
+   * `drainStates`, this lets consumers (board animation) replay every intermediate
+   * state, even when React 18 batches multiple setState calls into one render.
+   */
+  stateSeq: number;
+  /** Pull every state message received since the last drain. FIFO order. */
+  drainStates: () => GameState[];
   agent: { id: string; name: string } | null;
   northAgent: { id: string; name: string } | null;
   thinking: boolean;
@@ -38,6 +46,20 @@ export function useGame(): GameView {
   const [result, setResult] = useState<GameOver | null>(null);
   const [analysing, setAnalysing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [stateSeq, setStateSeq] = useState(0);
+  const stateBufferRef = useRef<GameState[]>([]);
+
+  const pushState = useCallback((s: GameState) => {
+    stateBufferRef.current.push(s);
+    setStateSeq((n) => n + 1);
+    setState(s);
+  }, []);
+
+  const drainStates = useCallback(() => {
+    const out = stateBufferRef.current;
+    stateBufferRef.current = [];
+    return out;
+  }, []);
 
   useEffect(() => {
     const ws = new WebSocket(WS_URL);
@@ -51,14 +73,15 @@ export function useGame(): GameView {
         case "game_started":
           setAgent(msg.agent);
           setNorthAgent(msg.north_agent ?? null);
-          setState(msg.state);
+          stateBufferRef.current = [];
+          pushState(msg.state);
           setResult(null);
           setLastAgentMove(null);
           setThinking(false);
           setError(null);
           break;
         case "state":
-          setState(msg);
+          pushState(msg);
           setThinking(false);
           break;
         case "agent_thinking":
@@ -96,6 +119,7 @@ export function useGame(): GameView {
   const newGame = useCallback(
     (agentId: string, humanPlays: "south" | "north", seed?: number) => {
       setState(null);
+      stateBufferRef.current = [];
       setResult(null);
       setAnalysing(false);
       setError(null);
@@ -113,6 +137,7 @@ export function useGame(): GameView {
       seed?: number,
     ) => {
       setState(null);
+      stateBufferRef.current = [];
       setResult(null);
       setAnalysing(false);
       setError(null);
@@ -143,6 +168,8 @@ export function useGame(): GameView {
   return {
     conn,
     state,
+    stateSeq,
+    drainStates,
     agent,
     northAgent,
     thinking,

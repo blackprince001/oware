@@ -8,10 +8,11 @@ interface Props {
   onPlay: (pit: number) => void;
   disabled: boolean;
   pace?: Pace;
+  source?: { stateSeq: number; drainStates: () => GameState[] };
 }
 
-export function Board({ state, onPlay, disabled, pace }: Props) {
-  const anim = useBoardAnimation(state, pace);
+export function Board({ state, onPlay, disabled, pace, source }: Props) {
+  const anim = useBoardAnimation(state, pace, source);
   const view = anim.displayed ?? state;
   const isAnimating = anim.animating;
 
